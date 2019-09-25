@@ -34,6 +34,7 @@
 #import "GCDWebServerPrivate.h"
 
 NSString* const GCDWebServerRequestAttribute_RegexCaptures = @"GCDWebServerRequestAttribute_RegexCaptures";
+NSString* const GCDWebServerRequestAttribute_PatternCaptures = @"GCDWebServerRequestAttribute_PatternCaptures";
 
 #define kZlibErrorDomain @"ZlibErrorDomain"
 #define kGZipInitialBufferSize (256 * 1024)

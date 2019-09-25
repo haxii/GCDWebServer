@@ -956,6 +956,127 @@ static inline NSString* _EncodeBase64(NSString* string) {
   }
 }
 
+- (void)addHandlerForMethod:(NSString*)method pathPattern:(NSString*)pattern requestClass:(Class)aClass processBlock:(GCDWebServerProcessBlock)block{
+  [self addHandlerForMethod:method
+                  pathPattern:pattern
+               requestClass:aClass
+          asyncProcessBlock:^(GCDWebServerRequest* request, GCDWebServerCompletionBlock completionBlock) {
+            completionBlock(block(request));
+          }];
+}
+
+- (void)addHandlerForMethod:(NSString*)method pathPattern:(NSString*)pattern requestClass:(Class)aClass asyncProcessBlock:(GCDWebServerAsyncProcessBlock)block{
+  // generate pattern components
+  if (pattern.length > 0 && [pattern characterAtIndex:0] == '/') {
+    pattern = [pattern substringFromIndex:1];
+  }
+  if (pattern.length > 0 && [pattern characterAtIndex:pattern.length - 1] == '/') {
+    pattern = [pattern substringToIndex:pattern.length - 1];
+  }
+  NSArray <NSString *> *patternPathComponents = [pattern componentsSeparatedByString:@"/"];
+  BOOL patternContainsWildcard = [patternPathComponents containsObject:@"*"];
+
+  // test pattern
+  if ([aClass isSubclassOfClass:[GCDWebServerRequest class]]) {
+    [self addHandlerWithMatchBlock:^GCDWebServerRequest*(NSString* requestMethod, NSURL* requestURL, NSDictionary<NSString*, NSString*>* requestHeaders, NSString* urlPath, NSDictionary<NSString*, NSString*>* urlQuery) {
+      if (![requestMethod isEqualToString:method]) {
+        return nil;
+      }
+      
+      // generate path components
+      NSString *path = [urlPath copy];
+      if (path.length > 0 && [path characterAtIndex:0] == '/') {
+        path = [path substringFromIndex:1];
+      }
+//      if (path.length > 0 && [path characterAtIndex:path.length - 1] == '/') {
+//        path = [path substringToIndex:path.length - 1];
+//      }
+      NSArray <NSString *> *pathComponents = [path componentsSeparatedByString:@"/"];
+      
+      // basic match
+      if (pathComponents.count != patternPathComponents.count && !patternContainsWildcard) {
+        // definitely not a match, nothing left to do
+        return nil;
+      }
+      
+      // components match
+      NSMutableDictionary *routeVariables = [NSMutableDictionary dictionary];
+      
+      BOOL isMatch = YES;
+      NSUInteger index = 0;
+      
+      for (NSString *patternComponent in patternPathComponents) {
+        NSString *URLComponent = nil;
+        BOOL isPatternComponentWildcard = [patternComponent isEqualToString:@"*"];
+        
+        if (index < [pathComponents count]) {
+          URLComponent = [pathComponents objectAtIndex:index];
+        } else if (!isPatternComponentWildcard) {
+          // URLComponent is not a wildcard and index is >= request.pathComponents.count, so bail
+          isMatch = NO;
+          break;
+        }
+        
+        if ([patternComponent hasPrefix:@":"]) {
+          // this is a variable, set it in the params
+          // extrat name
+          NSString *variableName = [patternComponent copy];
+          if (variableName.length > 1 && [variableName characterAtIndex:0] == ':') {
+            // Strip off the ':' in front of param names
+            variableName = [variableName substringFromIndex:1];
+          }
+          if (variableName.length > 1 && [variableName characterAtIndex:variableName.length - 1] == '#') {
+            // Strip of trailing fragment
+            variableName = [variableName substringToIndex:variableName.length - 1];
+          }
+          
+          // extract value
+          NSString *variableValue = [URLComponent stringByRemovingPercentEncoding];
+          if (variableValue.length > 1 && [variableValue characterAtIndex:variableValue.length - 1] == '#') {
+            // Strip of trailing fragment
+            variableValue = [variableValue substringToIndex:variableValue.length - 1];
+          }
+          
+          [routeVariables setObject:variableValue forKey:variableName];
+        } else if (isPatternComponentWildcard) {
+          // match wildcards
+          NSUInteger minRequiredParams = index;
+          if (pathComponents.count >= minRequiredParams) {
+            // match: /a/b/c/* has to be matched by at least /a/b/c
+            routeVariables[@"*"] = [pathComponents subarrayWithRange:NSMakeRange(index, pathComponents.count - index)];
+            isMatch = YES;
+          } else {
+            // not a match: /a/b/c/* cannot be matched by URL /a/b/
+            isMatch = NO;
+          }
+          break;
+        } else if (![patternComponent isEqualToString:URLComponent]) {
+          // break if this is a static component and it isn't a match
+          isMatch = NO;
+          break;
+        }
+        index++;
+      }
+      
+      if (!isMatch) {
+        // Return nil to indicate that there was not a match
+        routeVariables = nil;
+        return nil;
+      }
+      
+      GCDWebServerRequest* request = [(GCDWebServerRequest*)[aClass alloc] initWithMethod:requestMethod url:requestURL headers:requestHeaders path:urlPath query:urlQuery];
+      [request setAttribute:routeVariables forKey:GCDWebServerRequestAttribute_PatternCaptures];
+      return request;
+    }
+                 asyncProcessBlock:block];
+  } else {
+    GWS_DNOT_REACHED();
+  }
+}
+
+
+
+
 @end
 
 @implementation GCDWebServer (GETHandlers)

@@ -47,6 +47,7 @@
 typedef enum {
   kMode_WebServer = 0,
   kMode_HTMLPage,
+  kMode_DymaticRoute,
   kMode_HTMLForm,
   kMode_HTMLFileUpload,
   kMode_WebDAV,
@@ -149,7 +150,7 @@ int main(int argc, const char* argv[]) {
     BOOL requestNATPortMapping = NO;
 
     if (argc == 1) {
-      fprintf(stdout, "Usage: %s [-mode webServer | htmlPage | htmlForm | htmlFileUpload | webDAV | webUploader | streamingResponse | asyncResponse] [-record] [-root directory] [-tests directory] [-authenticationMethod Basic | Digest] [-authenticationRealm realm] [-authenticationUser user] [-authenticationPassword password] [--localhost]\n\n", basename((char*)argv[0]));
+      fprintf(stdout, "Usage: %s [-mode webServer | htmlPage | dymaticRoute | htmlForm | htmlFileUpload | webDAV | webUploader | streamingResponse | asyncResponse] [-record] [-root directory] [-tests directory] [-authenticationMethod Basic | Digest] [-authenticationRealm realm] [-authenticationUser user] [-authenticationPassword password] [--localhost]\n\n", basename((char*)argv[0]));
     } else {
       for (int i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
@@ -161,6 +162,8 @@ int main(int argc, const char* argv[]) {
             mode = kMode_WebServer;
           } else if (!strcmp(argv[i], "htmlPage")) {
             mode = kMode_HTMLPage;
+          } else if (!strcmp(argv[i], "dymaticRoute")) {
+            mode = kMode_DymaticRoute;
           } else if (!strcmp(argv[i], "htmlForm")) {
             mode = kMode_HTMLForm;
           } else if (!strcmp(argv[i], "htmlFileUpload")) {
@@ -223,7 +226,32 @@ int main(int argc, const char* argv[]) {
                                  }];
         break;
       }
-
+      
+      // makes a dymatic route
+      case kMode_DymaticRoute: {
+        fprintf(stdout, "Running in Dymatic Route mode\n");
+        webServer = [[GCDWebServer alloc] init];
+        // swallow all
+        [webServer addHandlerForMethod:@"GET"
+                           pathPattern:@"/*" requestClass:[GCDWebServerRequest class]
+                          processBlock:^GCDWebServerResponse*(GCDWebServerRequest* request) {
+                            return [GCDWebServerDataResponse responseWithText:[NSString stringWithFormat:@"matched /* with parameters:\n%@\n",[request attributeForKey:GCDWebServerRequestAttribute_PatternCaptures]]];
+                          }];
+        // low priority
+        [webServer addHandlerForMethod:@"GET"
+                           pathPattern:@"/a/:b2/c/*" requestClass:[GCDWebServerRequest class]
+                          processBlock:^GCDWebServerResponse*(GCDWebServerRequest* request) {
+                            return [GCDWebServerDataResponse responseWithText:[NSString stringWithFormat:@"matched /a/:b2/c/* with parameters:\n%@\n",[request attributeForKey:GCDWebServerRequestAttribute_PatternCaptures]]];
+                          }];
+        // high priority
+        [webServer addHandlerForMethod:@"GET"
+                           pathPattern:@"/a/:b1/c" requestClass:[GCDWebServerRequest class]
+                          processBlock:^GCDWebServerResponse*(GCDWebServerRequest* request) {
+                            return [GCDWebServerDataResponse responseWithText:[NSString stringWithFormat:@"matched /a/:b1/c with parameters:\n%@\n",[request attributeForKey:GCDWebServerRequestAttribute_PatternCaptures]]];
+                          }];
+        break;
+      }
+      
       // Implements an HTML form
       case kMode_HTMLForm: {
         fprintf(stdout, "Running in HTML Form mode\n");

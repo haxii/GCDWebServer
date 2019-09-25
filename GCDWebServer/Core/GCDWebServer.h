@@ -499,6 +499,20 @@ extern NSString* const GCDWebServerAuthenticationMethod_DigestAccess;
  */
 - (void)addHandlerForMethod:(NSString*)method pathRegex:(NSString*)regex requestClass:(Class)aClass asyncProcessBlock:(GCDWebServerAsyncProcessBlock)block;
 
+/**
+ *  Adds a handler to the server to handle incoming HTTP requests with a given
+ *  HTTP method and a path matching a case-insensitive path pattern and
+ *  generate responses synchronously.
+ */
+- (void)addHandlerForMethod:(NSString*)method pathPattern:(NSString*)pattern requestClass:(Class)aClass processBlock:(GCDWebServerProcessBlock)block;
+
+/**
+ *  Adds a handler to the server to handle incoming HTTP requests with a given
+ *  HTTP method and a path matching a case-insensitive path pattern and
+ *  generate responses asynchronously.
+ */
+- (void)addHandlerForMethod:(NSString*)method pathPattern:(NSString*)pattern requestClass:(Class)aClass asyncProcessBlock:(GCDWebServerAsyncProcessBlock)block;
+
 @end
 
 @interface GCDWebServer (GETHandlers)

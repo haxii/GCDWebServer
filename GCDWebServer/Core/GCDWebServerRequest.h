@@ -37,6 +37,14 @@ NS_ASSUME_NONNULL_BEGIN
  *  -addHandlerForMethod:pathRegex:requestClass:processBlock:.
  */
 extern NSString* const GCDWebServerRequestAttribute_RegexCaptures;
+/**
+ *  Attribute key to retrieve an NSDict containing NSStrings from a GCDWebServerRequest
+ *  with the contents of any pattern captures done on the request path.
+ *
+ *  @warning This attribute will only be set on the request if adding a handler using
+ *  -addHandlerForMethod:pathPattern:requestClass:processBlock:.
+ */
+extern NSString* const GCDWebServerRequestAttribute_PatternCaptures;
 
 /**
  *  This protocol is used by the GCDWebServerConnection to communicate with
